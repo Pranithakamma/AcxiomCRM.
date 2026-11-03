@@ -1,0 +1,11 @@
+using AcxiomCRM.Data; using AcxiomCRM.Models; using AcxiomCRM.Services; using Microsoft.AspNetCore.Authorization; using Microsoft.AspNetCore.Mvc; using Microsoft.EntityFrameworkCore;
+namespace AcxiomCRM.Controllers;
+[Authorize] public class OpportunitiesController : Controller {
+ private readonly ApplicationDbContext _db; private readonly AuditService _audit; public OpportunitiesController(ApplicationDbContext db,AuditService audit){_db=db;_audit=audit;}
+ public async Task<IActionResult> Index(string? search){var q=_db.Opportunities.AsQueryable();if(!string.IsNullOrWhiteSpace(search))q=q.Where(x=>x.Name.Contains(search)||x.Stage.Contains(search));ViewBag.Search=search;return View(await q.OrderBy(x=>x.ExpectedCloseDate).ToListAsync());}
+ public IActionResult Create()=>View(new Opportunity());
+ [HttpPost,ValidateAntiForgeryToken] public async Task<IActionResult> Create(Opportunity m){if(m.Stage!="Won"&&m.Stage!="Lost"&&m.ExpectedCloseDate.Date<DateTime.Today)ModelState.AddModelError("ExpectedCloseDate","Expected close date cannot be in the past for an active opportunity.");if(!ModelState.IsValid)return View(m);_db.Add(m);await _db.SaveChangesAsync();await _audit.RecordAsync("Create","Opportunity",m.Id.ToString(),null,m);return RedirectToAction(nameof(Index));}
+ public async Task<IActionResult> Edit(int id){var x=await _db.Opportunities.FindAsync(id);return x==null?NotFound():View(x);}
+ [HttpPost,ValidateAntiForgeryToken] public async Task<IActionResult> Edit(int id,Opportunity m){if(id!=m.Id)return BadRequest();if(m.Stage!="Won"&&m.Stage!="Lost"&&m.ExpectedCloseDate.Date<DateTime.Today)ModelState.AddModelError("ExpectedCloseDate","Expected close date cannot be in the past for an active opportunity.");if(!ModelState.IsValid)return View(m);var old=await _db.Opportunities.AsNoTracking().FirstOrDefaultAsync(x=>x.Id==id);if(old==null)return NotFound();_db.Update(m);await _db.SaveChangesAsync();await _audit.RecordAsync("Update","Opportunity",id.ToString(),old,m);return RedirectToAction(nameof(Index));}
+ [HttpPost,ValidateAntiForgeryToken] public async Task<IActionResult> Delete(int id){var x=await _db.Opportunities.FindAsync(id);if(x!=null){_db.Remove(x);await _db.SaveChangesAsync();await _audit.RecordAsync("Delete","Opportunity",id.ToString(),x,null);}return RedirectToAction(nameof(Index));}
+}

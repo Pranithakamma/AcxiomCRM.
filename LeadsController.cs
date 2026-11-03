@@ -1,0 +1,13 @@
+using AcxiomCRM.Data; using AcxiomCRM.Models; using AcxiomCRM.Services; using Microsoft.AspNetCore.Authorization; using Microsoft.AspNetCore.Mvc; using Microsoft.EntityFrameworkCore;
+namespace AcxiomCRM.Controllers;
+[Authorize] public class LeadsController : Controller {
+ private readonly ApplicationDbContext _db; private readonly AuditService _audit; public LeadsController(ApplicationDbContext db,AuditService audit){_db=db;_audit=audit;}
+ private static readonly string[] AllowedStatuses = { "New", "Contacted", "Qualified", "Unqualified", "Converted", "Lost" };
+ private static bool IsValidTransition(string oldStatus, string newStatus) => oldStatus switch { "New" => new[] { "Contacted", "Qualified", "Unqualified", "Lost" }.Contains(newStatus), "Contacted" => new[] { "Qualified", "Unqualified", "Lost" }.Contains(newStatus), "Qualified" => new[] { "Converted", "Lost" }.Contains(newStatus), _ => false };
+ public async Task<IActionResult> Index(string? search){var q=_db.Leads.AsQueryable();if(!string.IsNullOrWhiteSpace(search))q=q.Where(x=>x.Name.Contains(search)||x.Email.Contains(search));ViewBag.Search=search;return View(await q.OrderByDescending(x=>x.CreatedDate).ToListAsync());}
+ public IActionResult Create()=>View(new Lead());
+ [HttpPost,ValidateAntiForgeryToken] public async Task<IActionResult> Create(Lead m){if(!AllowedStatuses.Contains(m.Status))ModelState.AddModelError(nameof(m.Status),"Select a valid lead status.");if(!ModelState.IsValid)return View(m);_db.Add(m);await _db.SaveChangesAsync();await _audit.RecordAsync("Create","Lead",m.Id.ToString(),null,m);return RedirectToAction(nameof(Index));}
+ public async Task<IActionResult> Edit(int id){var x=await _db.Leads.FindAsync(id);return x==null?NotFound():View(x);}
+ [HttpPost,ValidateAntiForgeryToken] public async Task<IActionResult> Edit(int id,Lead m){if(id!=m.Id)return BadRequest();var old=await _db.Leads.AsNoTracking().FirstOrDefaultAsync(x=>x.Id==id);if(old==null)return NotFound();if(!AllowedStatuses.Contains(m.Status))ModelState.AddModelError(nameof(m.Status),"Select a valid lead status.");if(old.Status!=m.Status&&!IsValidTransition(old.Status,m.Status))ModelState.AddModelError(nameof(m.Status),$"Transition from {old.Status} to {m.Status} is not allowed.");if(!ModelState.IsValid)return View(m);_db.Update(m);await _db.SaveChangesAsync();await _audit.RecordAsync("Update","Lead",id.ToString(),old,m);return RedirectToAction(nameof(Index));}
+ [HttpPost,ValidateAntiForgeryToken] public async Task<IActionResult> Delete(int id){var x=await _db.Leads.FindAsync(id);if(x!=null){_db.Remove(x);await _db.SaveChangesAsync();await _audit.RecordAsync("Delete","Lead",id.ToString(),x,null);}return RedirectToAction(nameof(Index));}
+}

@@ -1,0 +1,4 @@
+@model Customer
+<h2>Add Customer</h2><div class="card p-4">@using(Html.BeginForm()){ @Html.AntiForgeryToken(); <partial name="_Form" model="Model" /> }</div>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

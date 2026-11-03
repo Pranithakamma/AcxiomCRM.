@@ -1,0 +1,21 @@
+@using Microsoft.EntityFrameworkCore
+@{ ViewData["Title"]="Dashboard"; }
+<h2 class="mb-4">CRM Dashboard</h2>
+<div class="row g-3 mb-4">
+@foreach(var item in new[]{("Total Customers",ViewBag.Customers),("Total Leads",ViewBag.Leads),("Open Leads",ViewBag.OpenLeads),("Opportunities",ViewBag.Opportunities),("Won",ViewBag.Won),("Lost",ViewBag.Lost)})
+{<div class="col-6 col-md-4 col-xl-2"><div class="card p-3 h-100"><div class="text-secondary small">@item.Item1</div><div class="fs-2 fw-bold">@item.Item2</div></div></div>}
+<div class="col-12"><div class="card p-3"><div class="text-secondary">Open pipeline value</div><div class="fs-2 fw-bold">@(((decimal)ViewBag.Pipeline).ToString("C"))</div></div></div>
+</div>
+<div class="row g-3"><div class="col-md-6"><div class="card p-3"><h5>Lead Status</h5><canvas id="leadChart"></canvas></div></div><div class="col-md-6"><div class="card p-3"><h5>Opportunity Pipeline</h5><canvas id="oppChart"></canvas></div></div></div>
+@section Scripts {<script src="https://cdn.jsdelivr.net/npm/chart.js"></script><script>
+const labels=@Html.Raw(System.Text.Json.JsonSerializer.Serialize((string[])ViewBag.LeadLabels));
+const values=@Html.Raw(System.Text.Json.JsonSerializer.Serialize((int[])ViewBag.LeadValues));
+new Chart(document.getElementById('leadChart'),{type:'bar',data:{labels,datasets:[{label:'Leads',data:values}]},options:{responsive:true}});
+new Chart(document.getElementById('oppChart'),{type:'doughnut',data:{labels:['Prospecting','Qualification','Proposal','Negotiation','Won','Lost'],datasets:[{data:[
+@((await (Context.RequestServices.GetService(typeof(AcxiomCRM.Data.ApplicationDbContext)) as AcxiomCRM.Data.ApplicationDbContext)!.Opportunities.CountAsync(x=>x.Stage=="Prospecting"))),
+@((await (Context.RequestServices.GetService(typeof(AcxiomCRM.Data.ApplicationDbContext)) as AcxiomCRM.Data.ApplicationDbContext)!.Opportunities.CountAsync(x=>x.Stage=="Qualification"))),
+@((await (Context.RequestServices.GetService(typeof(AcxiomCRM.Data.ApplicationDbContext)) as AcxiomCRM.Data.ApplicationDbContext)!.Opportunities.CountAsync(x=>x.Stage=="Proposal"))),
+@((await (Context.RequestServices.GetService(typeof(AcxiomCRM.Data.ApplicationDbContext)) as AcxiomCRM.Data.ApplicationDbContext)!.Opportunities.CountAsync(x=>x.Stage=="Negotiation"))),
+@((await (Context.RequestServices.GetService(typeof(AcxiomCRM.Data.ApplicationDbContext)) as AcxiomCRM.Data.ApplicationDbContext)!.Opportunities.CountAsync(x=>x.Stage=="Won"))),
+@((await (Context.RequestServices.GetService(typeof(AcxiomCRM.Data.ApplicationDbContext)) as AcxiomCRM.Data.ApplicationDbContext)!.Opportunities.CountAsync(x=>x.Stage=="Lost")))
+]}]}});</script>}
